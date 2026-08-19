@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "matmul_fp16_16x64x1024",
+  "operator": "MatMul",
+  "runner_binary": "mrb_matmul_runner",
+  "description": "FP16 MatMul baseline and intentionally racy AI Core kernels",
+  "tensors": {
+    "inputs": [
+      {"name": "a", "shape": [16, 64], "dtype": "float16"},
+      {"name": "b", "shape": [64, 1024], "dtype": "float16"}
+    ],
+    "output": {"name": "c", "shape": [16, 1024], "dtype": "float16"}
+  },
+  "data": {
+    "seed": 20260819,
+    "integer_low": -5,
+    "integer_high_exclusive": 5
+  },
+  "cases": [
+    {
+      "id": "baseline",
+      "description": "Unmodified MatMul kernel",
+      "model_dir": "models/baseline",
+      "kernel_source": "kernels/baseline/matmul.cce",
+      "required_hazards": [],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "match"
+    },
+    {
+      "id": "cross_core_mod4",
+      "description": "Map eight blocks onto four GM output regions",
+      "model_dir": "models/cross_core_mod4",
+      "kernel_source": "kernels/injections/te_matmul_cross_core_mod4.cce",
+      "required_hazards": ["GM_WAW"],
+      "allowed_hazards": ["GM_WAW", "UB_WAR"],
+      "output_policy": "mismatch"
+    },
+    {
+      "id": "cross_core_large_offset",
+      "description": "Double each block's GM write length into the next block",
+      "model_dir": "models/cross_core_large_offset",
+      "kernel_source": "kernels/injections/te_matmul_cross_core_large_offset.cce",
+      "required_hazards": ["GM_WAW"],
+      "allowed_hazards": ["GM_WAW", "UB_WAR"],
+      "output_policy": "mismatch"
+    },
+    {
+      "id": "l43_no_m_to_v",
+      "description": "Remove the MTE2-to-Vector event before B-layout conversion",
+      "model_dir": "models/l43_no_m_to_v",
+      "kernel_source": "kernels/injections/te_matmul_l43_no_m_to_v.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "l46_rm_barrier_v",
+      "description": "Remove a schedule-sensitive Vector barrier at the loop head",
+      "model_dir": "models/l46_rm_barrier_v",
+      "kernel_source": "kernels/injections/te_matmul_l46_rm_barrier_v.cce",
+      "required_hazards": [],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "l54_no_v_to_m",
+      "description": "Remove the Vector-to-MTE3 event before UB-to-L1 copy",
+      "model_dir": "models/l54_no_v_to_m",
+      "kernel_source": "kernels/injections/te_matmul_l54_no_v_to_m.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "l63_no_m_to_v",
+      "description": "Remove the Matrix-to-Vector event before L0C-to-UB copy",
+      "model_dir": "models/l63_no_m_to_v",
+      "kernel_source": "kernels/injections/te_matmul_l63_no_m_to_v.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    }
+  ]
+}

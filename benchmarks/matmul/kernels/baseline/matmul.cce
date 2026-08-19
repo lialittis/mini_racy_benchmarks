@@ -1,0 +1,127 @@
+#ifdef __CCE_KT_TEST__
+#define __aicore__ 
+#else
+#define __aicore__ [aicore]
+#endif
+
+extern "C" __global__ __aicore__ void te_matmul_c57d0289eba01acf11db0c8c7ce2e1441bae77ea3034f8d4cdb84d8b29725064__kernel0(__gm__ half* __restrict__ tensor_a, __gm__ half* __restrict__ tensor_b, __gm__ half* __restrict__ tensor_c_gm,  __gm__ uint64_t* __restrict__ overflow_status) {
+set_vector_mask((uint64_t)-1, (uint64_t)-1);
+set_mask_norm();
+set_atomic_none();
+  uint64_t status_overflow[1] = {0};
+// "aicore arch: Ascend310P3"
+  if (((int32_t)block_idx) < 8) {
+__ubuf__     half* tensor_a_aligned = (__ubuf__  half *)get_imm(0);
+__ubuf__     half* tensor_a_zz_fract_k = (__ubuf__  half *)get_imm(2560);
+__cbuf__     half* tensor_a_zz_fract_k_local_L1 = (__cbuf__  half *)get_imm(0);
+__ca__     half* tensor_a_zz = (__ca__  half *)get_imm(0);
+__ubuf__     half* tensor_b_aligned = (__ubuf__  half *)get_imm(4608);
+__ubuf__     half* tensor_b_zn_fract = (__ubuf__  half *)get_imm(23040);
+__cbuf__     half* tensor_b_zn_fract_local_L1 = (__cbuf__  half *)get_imm(2048);
+__cb__     half* tensor_b_zn = (__cb__  half *)get_imm(0);
+__cc__     float* tensor_mmad = (__cc__  float *)get_imm(0);
+__ubuf__     half* tensor_gemm_f16 = (__ubuf__  half *)get_imm(0);
+__ubuf__     half* tensor_nz2nd = (__ubuf__  half *)get_imm(4096);
+    copy_gm_to_ubuf(((__ubuf__ half *)tensor_a_aligned), ((__gm__ half *)tensor_a), 0, 16, 4, 0, 1);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    uint64_t va_reg_array_1[8] = {((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 16)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 32)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 48)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 64)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 80)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 96)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 112))};set_va_reg_sb(VA0, va_reg_array_1);
+    uint64_t va_reg_array_2[8] = {((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 128)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 144)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 160)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 176)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 192)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 208)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 224)), ((uint64_t)((__ubuf__ half *)tensor_a_zz_fract_k + 240))};set_va_reg_sb(VA1, va_reg_array_2);
+    uint64_t va_reg_array_3[8] = {((uint64_t)((__ubuf__ half *)tensor_a_aligned)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 80)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 160)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 240)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 320)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 400)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 480)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 560))};set_va_reg_sb(VA2, va_reg_array_3);
+    uint64_t va_reg_array_4[8] = {((uint64_t)((__ubuf__ half *)tensor_a_aligned + 640)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 720)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 800)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 880)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 960)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 1040)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 1120)), ((uint64_t)((__ubuf__ half *)tensor_a_aligned + 1200))};set_va_reg_sb(VA3, va_reg_array_4);
+    pipe_barrier(PIPE_V);
+    scatter_vnchwconv_b16(VA0, VA2, (int64_t)288230376151777296);
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_cbuf(((__cbuf__ half *)tensor_a_zz_fract_k_local_L1), ((__ubuf__ half *)tensor_a_zz_fract_k), 0, 1, 64, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_MTE1, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_MTE1, EVENT_ID0);
+    load_cbuf_to_ca(((__ca__ half *)tensor_a_zz), ((__cbuf__ half *)tensor_a_zz_fract_k_local_L1), 0, 4, 1, 0, 0, 1, inc);
+    wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    copy_gm_to_ubuf(((__ubuf__ half *)tensor_b_aligned), ((__gm__ half *)tensor_b + (((int64_t)((int32_t)block_idx)) * (int64_t)128)), 0, 64, 8, 56, 1);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    for (int32_t i0 = 0; i0 < 4; ++i0) {
+      pipe_barrier(PIPE_V);
+      uint64_t va_reg_array_5[8] = {((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + (i0 * 2048))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 16))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 32))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 48))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 64))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 80))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 96))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 112)))};set_va_reg_sb(VA0, va_reg_array_5);
+      uint64_t va_reg_array_6[8] = {((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 128))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 144))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 160))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 176))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 192))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 208))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 224))), ((uint64_t)((__ubuf__ half *)tensor_b_zn_fract + ((i0 * 2048) + 240)))};set_va_reg_sb(VA1, va_reg_array_6);
+      uint64_t va_reg_array_7[8] = {((uint64_t)((__ubuf__ half *)tensor_b_aligned + (i0 * 2304))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 144))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 288))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 432))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 576))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 720))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 864))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1008)))};set_va_reg_sb(VA2, va_reg_array_7);
+      uint64_t va_reg_array_8[8] = {((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1152))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1296))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1440))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1584))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1728))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 1872))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 2016))), ((uint64_t)((__ubuf__ half *)tensor_b_aligned + ((i0 * 2304) + 2160)))};set_va_reg_sb(VA3, va_reg_array_8);
+      pipe_barrier(PIPE_V);
+      scatter_vnchwconv_b16(VA0, VA2, (int64_t)576460752303489040);
+    }
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_cbuf(((__cbuf__ half *)tensor_b_zn_fract_local_L1), ((__ubuf__ half *)tensor_b_zn_fract), 0, 1, 512, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_MTE1, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_MTE1, EVENT_ID0);
+    load_cbuf_to_cb(((__cb__ half *)tensor_b_zn), ((__cbuf__ half *)tensor_b_zn_fract_local_L1), 0, 32, 1, 0, 0, 0, inc);
+    set_flag(PIPE_MTE1, PIPE_M, EVENT_ID0);
+    wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID0);
+    mad(((__cc__ float *)tensor_mmad), ((__ca__ half *)tensor_a_zz), ((__cb__ half *)tensor_b_zn), 16, 64, 128, 1);
+    set_flag(PIPE_M, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_M, PIPE_V, EVENT_ID0);
+    copy_matrix_cc_to_ubuf(((__ubuf__ half *)tensor_gemm_f16), ((__cc__ float *)tensor_mmad), 0, 1, 8, 0, 0, CRMODE_F32toF16_NONE);
+    set_vector_mask(0xffffffffffffffff, 0xffffffffffffffff);
+    for (int32_t i1_outer = 0; i1_outer < 8; ++i1_outer) {
+      vmuls(((__ubuf__ half *)tensor_nz2nd + (i1_outer * 16)), ((__ubuf__ half *)tensor_gemm_f16 + (i1_outer * 256)), (half)1.000000e+00f, (uint8_t)2ULL, (uint16_t)8ULL, (uint16_t)1ULL, (uint16_t)64ULL, (uint16_t)8ULL);
+    }
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_gm(((__gm__ half *)tensor_c_gm + (((int64_t)((int32_t)block_idx)) * (int64_t)128)), ((__ubuf__ half *)tensor_nz2nd), 0, 16, 8, 0, 56);
+  }
+  pipe_barrier(PIPE_ALL);
+  
+  status_overflow[0] = status_overflow[0] | get_status();
+  status_overflow[0] = (status_overflow[0] << 32) >> 32;
+  uint64_t status_mask = 0x520;
+  status_overflow[0] = status_overflow[0] & status_mask;
+  if (status_overflow[0]) {
+    uint64_t *ptr = (uint64_t *)get_imm(0x43FE0);
+    uint64_t buff[4];
+    buff[0] = ptr[0];
+    buff[1] = ptr[1];
+    buff[2] = ptr[2] | status_overflow[0];
+    buff[3] = ptr[3];
+    
+    if (buff[0] == 0) {
+      ptr[0] = 0xFFFFFFFFFFFFFFFF;
+      ptr[1] = block_idx;
+    }
+    ptr[2] = buff[2];
+    
+    __ubuf__ uint8_t* tmp_status = (__ubuf__ uint8_t *)get_imm(0);
+    if (buff[2] > 0) {
+      *tmp_status = 3;
+    } else {
+      *tmp_status = 0;
+    }
+    pipe_barrier(PIPE_ALL);
+    copy_ubuf_to_gm(((__gm__ int32_t *)overflow_status), ((__ubuf__ int32_t *)tmp_status), 0, 1, 1, 0, 0);
+    pipe_barrier(PIPE_ALL);
+  }
+  
+  pipe_barrier(PIPE_ALL);
+
+}
+
+struct BaseTlv { 
+unsigned short type; 
+unsigned short len; 
+}; 
+struct FunMetaKType { 
+BaseTlv head; 
+unsigned int ktype; 
+}; 
+struct FunMetaIsTik { 
+BaseTlv head; 
+unsigned int is_tik; 
+}; 
+struct InfoMetaDFX { 
+FunMetaKType ktype; 
+FunMetaIsTik is_tik; 
+BaseTlv head; 
+uint8_t value[60]; 
+}; 
+static const struct InfoMetaDFX op_dfx_info_te_matmul_c57d0289eba01acf11db0c8c7ce2e1441bae77ea3034f8d4cdb84d8b29725064__kernel0 __attribute__((used, __section__(".ascend.meta.te_matmul_c57d0289eba01acf11db0c8c7ce2e1441bae77ea3034f8d4cdb84d8b29725064__kernel0"))) = {{{1, 4}, 1}, {{6, 4}, 0}, {4, 60, }, 0, 5, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1, 255, 255, 255, 255, 255, 255, 255, 255, 0, 5, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1, 255, 255, 255, 255, 255, 255, 255, 255, 0, 5, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1, 255, 255, 255, 255, 255, 255, 255, 255, }; 

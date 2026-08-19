@@ -1,0 +1,43 @@
+# Build and generated experiment outputs
+/build/
+/cmake-build-*/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+/build.ninja
+/.ninja_*
+/artifacts/
+/compile_commands.json
+*.o
+*.a
+*.so
+
+# ATC, CCEC, and runtime outputs accidentally created at repository root
+/kernel_meta/
+/op_models*/
+/result_files/
+/mindstudio_sanitizer_log/
+/fusion_result.json
+/core
+/core.*
+*.log
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

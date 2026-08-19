@@ -1,0 +1,8 @@
+# Model Build Records
+
+本目录保存进入版本控制的模型生成摘要。原始 ATC、CCEC、设备和 sanitizer 日志保留在 Git 忽略的 `artifacts/` 中；摘要必须足以定位原始材料并判断模型是否可以提升。
+
+- [2026-06-09 MatMul 0909_retry](2026-06-09-matmul-0909-retry.md)：当前七个精选 OM 的历史来源和 2026-08-19 复验。
+- [记录模板](TEMPLATE.md)：新基准、故障 case 或 CANN 迁移应复制并填写此模板。
+
+生成记录与对应 CCE、OM、manifest、`SHA256SUMS` 和 changelog 应在同一次提交中更新。
