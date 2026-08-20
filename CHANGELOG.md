@@ -9,6 +9,10 @@
   from unproven runtime address overlap or racecheck behavior.
 - Recorded the local ACLNN dispatch limitation: generic Matmul selected MatMulV2, while the official
   MatMulV3 WeightNz example failed workspace setup with error `161002`.
+- Added a reusable two-stage CCEC bitcode/text LLVM IR extractor for legacy TBE-generated CCE.
+- Verified O0, O2, and sanitizer IR generation and all seven MatMul baseline/injection CCE sources.
+- Confirmed that the `l46_rm_barrier_v` and `l63_no_m_to_v` injection differences remain visible in
+  optimized LLVM IR.
 
 ## 2026-08-19
 

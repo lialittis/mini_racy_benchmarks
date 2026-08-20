@@ -5,9 +5,10 @@
 1. [基准 CCE 生成](cce_generation.md)：从 `operator.json` 调用 ATC/TBE，理解并保存 `.cce`、`.o`、编译 JSON 和 `.om`。
 2. [故障注入与 OM 回灌](fault_injection.md)：修改 CCE，通过 CCEC shim 在 ATC 编译阶段替换内核，并由 ATC 完成 OM 封装。
 3. [模型生成与测试](model_generation_and_testing.md)：记录环境，构建模型，执行 runner、NumPy 对照和 mssanitizer 完整矩阵。
-4. [MatMul 偶发告警与非确定性分析](analysis/matmul_intermittency_and_nondeterminism.md)：汇总各 case 的动态波动、当前成因分析和后续检查计划。
-5. [架构说明](architecture.md)：项目各层的职责、版本控制边界和新增 benchmark 规则。
-6. [生成记录](records/)：进入版本控制的模型来源、命令、哈希和验证结论。
+4. [TBE/CCE LLVM IR 提取](tbe_cce_llvm_ir.md)：从旧式 `.cce` 生成 bitcode 和可阅读 `.ll`，比较优化和 sanitizer 表示。
+5. [MatMul 偶发告警与非确定性分析](analysis/matmul_intermittency_and_nondeterminism.md)：汇总各 case 的动态波动、当前成因分析和后续检查计划。
+6. [架构说明](architecture.md)：项目各层的职责、版本控制边界和新增 benchmark 规则。
+7. [生成记录](records/)：进入版本控制的模型来源、命令、哈希和验证结论。
 
 当前多算子迁移的具体来源和限制见
 [Add、Softmax 与 GEMM 迁移记录](records/2026-08-19-add-softmax-gemm-migration.md)。

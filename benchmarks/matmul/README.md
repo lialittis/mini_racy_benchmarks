@@ -24,3 +24,4 @@
 - 制作注入源码并构建新 OM：[故障注入与 OM 回灌](../../docs/fault_injection.md)
 - 完整模型命令和回归门槛：[模型生成与完整测试](../../docs/model_generation_and_testing.md)
 - 当前模型来源和 SHA-256：[2026-06-09 生成记录](../../docs/records/2026-06-09-matmul-0909-retry.md)
+- 从 CCE 提取可阅读 LLVM IR：[TBE/CCE LLVM IR 提取](../../docs/tbe_cce_llvm_ir.md)
