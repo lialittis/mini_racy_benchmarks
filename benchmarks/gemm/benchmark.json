@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "id": "gemm_fp16_16x16x16",
+  "operator": "GEMM",
+  "runner_binary": "mrb_gemm_runner",
+  "runner_kind": "gemm",
+  "description": "FP16 GEMM baseline and intentionally racy AI Core kernels",
+  "timeout_seconds": 60,
+  "tensors": {
+    "inputs": [
+      {"name": "a", "shape": [16, 16], "dtype": "float16"},
+      {"name": "b", "shape": [16, 16], "dtype": "float16"},
+      {"name": "c", "shape": [16, 16], "dtype": "float16"}
+    ],
+    "output": {"name": "c_out", "shape": [16, 16], "dtype": "float16"}
+  },
+  "data": {
+    "seed": 20260822,
+    "integer_low": -3,
+    "integer_high_exclusive": 4
+  },
+  "reference": {"kind": "gemm", "alpha": 2.0, "beta": 1.0},
+  "comparison": {"mode": "exact"},
+  "required_hazards": [],
+  "allowed_hazards": ["GM_RAW", "GM_WAR", "GM_WAW", "UB_RAW", "UB_WAR", "UB_WAW"],
+  "cases": [
+    {
+      "id": "baseline",
+      "description": "Unmodified GEMM kernel",
+      "model_dir": "models/baseline",
+      "kernel_source": "kernels/baseline/gemm.cce",
+      "allowed_hazards": [],
+      "output_policy": "match"
+    },
+    {
+      "id": "no_beta_load_wait",
+      "description": "Remove beta GM-to-UB wait before beta conversion",
+      "model_dir": "models/no_beta_load_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_01_no_beta_load_wait.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_bias_load_wait",
+      "description": "Remove bias GM-to-UB wait before bias conversion",
+      "model_dir": "models/no_bias_load_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_02_no_bias_load_wait.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_beta_scalar_wait",
+      "description": "Remove Vector-to-Scalar wait before reading beta",
+      "model_dir": "models/no_beta_scalar_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_03_no_beta_scalar_wait.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_scalar_to_vector_wait",
+      "description": "Remove Scalar-to-Vector wait before beta vmuls",
+      "model_dir": "models/no_scalar_to_vector_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_04_no_scalar_to_vector_wait.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_a_load_wait",
+      "description": "Remove A GM-to-UB wait before VA setup",
+      "model_dir": "models/no_a_load_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_05_no_a_load_wait.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_a_scatter_wait",
+      "description": "Remove A scatter completion wait before UB-to-L1 copy",
+      "model_dir": "models/no_a_scatter_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_06_no_a_scatter_wait.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_a_l1_sync",
+      "description": "Remove A MTE3-to-MTE1 synchronization before L0A load",
+      "model_dir": "models/no_a_l1_sync",
+      "kernel_source": "kernels/injections/gemm_auto_race_07_no_a_l1_sync.cce",
+      "required_hazards": ["L1_RAW"],
+      "allowed_hazards": ["L1_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_b_load_wait",
+      "description": "Remove B GM-to-UB wait before B scatter",
+      "model_dir": "models/no_b_load_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_08_no_b_load_wait.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["GM_WAR", "UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_b_scatter_wait",
+      "description": "Remove B scatter completion wait before UB-to-L1 copy",
+      "model_dir": "models/no_b_scatter_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_09_no_b_scatter_wait.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_b_l1_sync",
+      "description": "Remove B MTE3-to-MTE1 synchronization before L0B load",
+      "model_dir": "models/no_b_l1_sync",
+      "kernel_source": "kernels/injections/gemm_auto_race_10_no_b_l1_sync.cce",
+      "required_hazards": ["L1_RAW"],
+      "allowed_hazards": ["L1_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_mte1_to_m_wait",
+      "description": "Remove MTE1-to-Matrix wait before mad",
+      "model_dir": "models/no_mte1_to_m_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_11_no_mte1_to_m_wait.cce",
+      "required_hazards": ["L0A_RAW", "L0B_RAW"],
+      "allowed_hazards": ["L0A_RAW", "L0B_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_m_to_v_wait",
+      "description": "Remove Matrix completion wait before L0C-to-UB copy",
+      "model_dir": "models/no_m_to_v_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_12_no_m_to_v_wait.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_alpha_load_wait",
+      "description": "Remove alpha GM-to-UB wait before alpha conversion",
+      "model_dir": "models/no_alpha_load_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_13_no_alpha_load_wait.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["GM_WAR", "UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_alpha_scalar_wait",
+      "description": "Remove Vector-to-Scalar wait before reading alpha",
+      "model_dir": "models/no_alpha_scalar_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_14_no_alpha_scalar_wait.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "matrix_enabled": false,
+      "execution_policy": "either",
+      "output_policy": "any"
+    },
+    {
+      "id": "no_vadd_to_vconv_barrier",
+      "description": "Remove Vector barrier between vadd and final conversion",
+      "model_dir": "models/no_vadd_to_vconv_barrier",
+      "kernel_source": "kernels/injections/gemm_auto_race_15_no_vadd_to_vconv_barrier.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_final_store_wait",
+      "description": "Remove final Vector-to-MTE3 wait before the GM store",
+      "model_dir": "models/no_final_store_wait",
+      "kernel_source": "kernels/injections/gemm_auto_race_16_no_final_store_wait.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_beta_vmuls_barrier",
+      "description": "Remove Vector barrier before beta vmuls",
+      "model_dir": "models/no_beta_vmuls_barrier",
+      "kernel_source": "kernels/injections/gemm_auto_race_17_no_beta_vmuls_barrier.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_a_scatter_barrier",
+      "description": "Remove Vector barrier before A scatter",
+      "model_dir": "models/no_a_scatter_barrier",
+      "kernel_source": "kernels/injections/gemm_auto_race_18_no_a_scatter_barrier.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_b_scatter_barrier",
+      "description": "Remove Vector barrier before B scatter",
+      "model_dir": "models/no_b_scatter_barrier",
+      "kernel_source": "kernels/injections/gemm_auto_race_19_no_b_scatter_barrier.cce",
+      "required_hazards": ["UB_WAR"],
+      "allowed_hazards": ["UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "aggressive_sync_strip",
+      "description": "Remove waits and barriers across scalar, vector, DMA and store paths",
+      "model_dir": "models/aggressive_sync_strip",
+      "kernel_source": "kernels/injections/gemm_auto_race_20_aggressive_sync_strip.cce",
+      "matrix_enabled": false,
+      "execution_policy": "failure",
+      "output_policy": "any"
+    },
+    {
+      "id": "l45_no_beta_scalar_wait",
+      "description": "Historical line-45 variant removing the Vector-to-Scalar beta wait",
+      "model_dir": "models/l45_no_beta_scalar_wait",
+      "kernel_source": "kernels/injections/gemm_race_l45_RW.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "matrix_enabled": false,
+      "execution_policy": "either",
+      "output_policy": "any"
+    },
+    {
+      "id": "l65_no_a_l1_sync",
+      "description": "Historical line-65 variant removing A MTE3-to-MTE1 synchronization",
+      "model_dir": "models/l65_no_a_l1_sync",
+      "kernel_source": "kernels/injections/gemm_race_l65_RW.cce",
+      "required_hazards": ["L1_RAW"],
+      "allowed_hazards": ["L1_RAW", "UB_WAR"],
+      "output_policy": "either"
+    },
+    {
+      "id": "l106_no_v_barrier",
+      "description": "Historical line-106 variant removing the barrier before final conversion",
+      "model_dir": "models/l106_no_v_barrier",
+      "kernel_source": "kernels/injections/gemm_race_l106_RW.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAR"],
+      "output_policy": "either"
+    }
+  ]
+}
