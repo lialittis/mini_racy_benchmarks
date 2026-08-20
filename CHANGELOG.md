@@ -1,5 +1,15 @@
 # Change Log
 
+## 2026-08-20
+
+- Added a reproducible Ascend310P3 MatMulV3 dynamic-kernel build and optimized-IR inspection probe.
+- Checked tiling keys `0` and `65536` for the `M -> V` synchronization, L0C-to-UB move, and
+  subsequent VMULS sequence without an intervening `PIPE_V` barrier.
+- Documented why preprocessed `.i` text alone is insufficient and separated static template evidence
+  from unproven runtime address overlap or racecheck behavior.
+- Recorded the local ACLNN dispatch limitation: generic Matmul selected MatMulV2, while the official
+  MatMulV3 WeightNz example failed workspace setup with error `161002`.
+
 ## 2026-08-19
 
 - Migrated Add, SoftmaxV2, and GEMM baselines, injected CCE sources, and selected OM fixtures.

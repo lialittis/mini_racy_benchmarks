@@ -11,6 +11,9 @@
 | `softmax` | FP32 `[8,16]` | 7 | 5 |
 | `gemm` | FP16 `C=2*A*B+C`, `16x16` | 24 | 21 |
 
+另有 [`matmul_v3`](benchmarks/matmul_v3/README.md) 动态内核静态探针，用于编译两个 tiling
+key 的优化 IR 并检查 `L0C -> UB -> VMULS` 区间的 `PIPE_V` barrier；它暂不属于 OM 执行矩阵。
+
 未进入默认矩阵的 case 仍保留 CCE 和 OM，用于可能超时或失败的显式负向测试。
 
 ## 快速开始
@@ -56,11 +59,10 @@ mini_racy_benchmarks/
 │   ├── matmul/
 │   ├── add/
 │   ├── softmax/
-│   └── gemm/
-│       ├── benchmark.json       # 输入、runner、case 和验收策略
-│       ├── config/              # ACL 与 ATC 单算子配置
-│       ├── kernels/             # baseline 和故障注入 CCE
-│       └── models/              # 精选 OM 与 SHA256SUMS
+│   ├── gemm/                    # 各执行基准包含 manifest、config、kernels 和 models
+│   └── matmul_v3/
+│       ├── config/              # 动态内核编译配置
+│       └── scripts/             # 编译、优化 IR 提取和 barrier 检查
 ├── runner/
 │   ├── include/
 │   └── src/                     # 通用 ACL op runner 与 GEMM runner
