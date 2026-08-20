@@ -133,11 +133,15 @@ chmod 750 "$CASE_OUT/run" "$CASE_OUT/run/result"
 
 mssanitizer --tool=racecheck \
   --log-file="$CASE_OUT/run/racecheck.log" -- \
-  "$PWD/build/bin/mrb_matmul_runner" \
+  "$PWD/build/bin/mrb_op_runner" \
   --model-dir "$CASE_OUT/models" \
   --input-dir "$PWD/artifacts/data/matmul_fp16_16x64x1024" \
   --output-dir "$CASE_OUT/run/result" \
   --acl-config "$PWD/benchmarks/matmul/config/acl.json" \
+  --operator MatMul \
+  --input-spec float16:16,64 \
+  --input-spec float16:64,1024 \
+  --output-spec float16:16,1024 \
   --device 0 \
   >"$CASE_OUT/run/console.log" 2>&1
 ```
@@ -240,5 +244,5 @@ sha256sum -c SHA256SUMS
 - OM 含 sanitizer 映射并能在 Ascend 310P3 上加载。
 - baseline 数值精确匹配，且没有超出允许集合的 hazard。
 - 每个注入 case 满足 manifest 的 hazard 和数值策略。
-- 七 case matrix 总状态为 PASS。
+- MatMul 的七 case matrix 总状态为 PASS。
 - OM 哈希和生成记录已更新。

@@ -9,6 +9,9 @@
 5. [架构说明](architecture.md)：项目各层的职责、版本控制边界和新增 benchmark 规则。
 6. [生成记录](records/)：进入版本控制的模型来源、命令、哈希和验证结论。
 
+当前多算子迁移的具体来源和限制见
+[Add、Softmax 与 GEMM 迁移记录](records/2026-08-19-add-softmax-gemm-migration.md)。
+
 ## 两类产物
 
 | 内容 | 目录 | 是否进入 Git |

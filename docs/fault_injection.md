@@ -147,7 +147,11 @@ chmod 750 "$OUT/run" "$OUT/run/result"
 
 mssanitizer --tool=racecheck \
   --log-file="$OUT/run/racecheck.log" -- \
-  "$PWD/build/bin/mrb_matmul_runner" \
+  "$PWD/build/bin/mrb_op_runner" \
+  --operator MatMul \
+  --input-spec float16:16,64 \
+  --input-spec float16:64,1024 \
+  --output-spec float16:16,1024 \
   --model-dir "$OUT/models" \
   --input-dir "$PWD/artifacts/data/matmul_fp16_16x64x1024" \
   --output-dir "$OUT/run/result" \
