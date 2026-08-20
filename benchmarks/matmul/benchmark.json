@@ -2,7 +2,8 @@
   "schema_version": 1,
   "id": "matmul_fp16_16x64x1024",
   "operator": "MatMul",
-  "runner_binary": "mrb_matmul_runner",
+  "runner_binary": "mrb_op_runner",
+  "runner_kind": "op",
   "description": "FP16 MatMul baseline and intentionally racy AI Core kernels",
   "tensors": {
     "inputs": [
@@ -15,6 +16,12 @@
     "seed": 20260819,
     "integer_low": -5,
     "integer_high_exclusive": 5
+  },
+  "reference": {
+    "kind": "matmul"
+  },
+  "comparison": {
+    "mode": "exact"
   },
   "cases": [
     {

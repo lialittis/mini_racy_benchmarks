@@ -28,21 +28,40 @@ find_library(ASCENDCL_LIBRARY ascendcl
         "${CANN_ROOT}/aarch64-linux/lib64"
         "${CANN_ROOT}/aarch64-linux/devlib")
 
-if(NOT ACL_INCLUDE_DIR OR NOT ASCENDCL_LIBRARY)
-    message(FATAL_ERROR "Cannot find AscendCL under CANN_ROOT=${CANN_ROOT}")
+find_library(ACL_CBLAS_LIBRARY acl_cblas
+    HINTS
+        "${CANN_ROOT}/lib64"
+        "${CANN_ROOT}/aarch64-linux/lib64"
+        "${CANN_ROOT}/aarch64-linux/devlib/linux/aarch64")
+
+if(NOT ACL_INCLUDE_DIR OR NOT ASCENDCL_LIBRARY OR NOT ACL_CBLAS_LIBRARY)
+    message(FATAL_ERROR "Cannot find AscendCL/ACL CBLAS under CANN_ROOT=${CANN_ROOT}")
 endif()
 
-add_executable(mrb_matmul_runner
+add_executable(mrb_op_runner
     runner/src/common.cpp
     runner/src/main.cpp
     runner/src/operator_desc.cpp
     runner/src/op_runner.cpp)
 
-target_include_directories(mrb_matmul_runner PRIVATE
+target_include_directories(mrb_op_runner PRIVATE
     "${ACL_INCLUDE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/runner/include")
 
-target_link_libraries(mrb_matmul_runner PRIVATE "${ASCENDCL_LIBRARY}")
+target_link_libraries(mrb_op_runner PRIVATE "${ASCENDCL_LIBRARY}")
 
-set_target_properties(mrb_matmul_runner PROPERTIES
+set_target_properties(mrb_op_runner PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+add_executable(mrb_gemm_runner
+    runner/src/common.cpp
+    runner/src/gemm_main.cpp)
+
+target_include_directories(mrb_gemm_runner PRIVATE
+    "${ACL_INCLUDE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/runner/include")
+
+target_link_libraries(mrb_gemm_runner PRIVATE "${ASCENDCL_LIBRARY}" "${ACL_CBLAS_LIBRARY}")
+
+set_target_properties(mrb_gemm_runner PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

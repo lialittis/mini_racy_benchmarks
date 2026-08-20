@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -25,8 +26,13 @@ BENCHMARK_DIR = ROOT / "benchmarks" / BENCHMARK_NAME
 MANIFEST_PATH = BENCHMARK_DIR / "benchmark.json"
 ARTIFACTS_DIR = ROOT / "artifacts"
 BUILD_DIR = ROOT / "build"
-RUNNER_PATH = BUILD_DIR / "bin" / "mrb_matmul_runner"
 HAZARD_PATTERN = re.compile(r"Potential (RAW|WAR|WAW) hazard detected at ([A-Za-z0-9_]+)")
+DTYPES = {
+    "float16": np.dtype(np.float16),
+    "float32": np.dtype(np.float32),
+    "int8": np.dtype(np.int8),
+    "int32": np.dtype(np.int32),
+}
 
 
 def load_manifest() -> dict[str, Any]:
@@ -56,9 +62,8 @@ def data_dir(manifest: dict[str, Any]) -> Path:
 
 def generate_data(manifest: dict[str, Any], force: bool = False) -> Path:
     output_dir = data_dir(manifest)
-    input_a = output_dir / "input_0.bin"
-    input_b = output_dir / "input_1.bin"
-    if input_a.exists() and input_b.exists() and not force:
+    input_paths = [output_dir / f"input_{index}.bin" for index, _ in enumerate(manifest["tensors"]["inputs"])]
+    if all(path.exists() for path in input_paths) and not force:
         return output_dir
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -66,26 +71,38 @@ def generate_data(manifest: dict[str, Any], force: bool = False) -> Path:
     rng = np.random.default_rng(config["seed"])
     low = config["integer_low"]
     high = config["integer_high_exclusive"]
-    tensors = manifest["tensors"]["inputs"]
-    a = rng.integers(low, high, size=tensors[0]["shape"]).astype(np.float16)
-    b = rng.integers(low, high, size=tensors[1]["shape"]).astype(np.float16)
-    a.tofile(input_a)
-    b.tofile(input_b)
+    for path, tensor in zip(input_paths, manifest["tensors"]["inputs"]):
+        dtype = DTYPES[tensor["dtype"]]
+        rng.integers(low, high, size=tensor["shape"]).astype(dtype).tofile(path)
 
-    metadata = {
-        "seed": config["seed"],
-        "input_0_sha256": sha256(input_a),
-        "input_1_sha256": sha256(input_b),
-    }
+    metadata = {"seed": config["seed"]}
+    metadata.update({f"input_{index}_sha256": sha256(path) for index, path in enumerate(input_paths)})
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     return output_dir
 
 
 def expected_output(manifest: dict[str, Any], inputs: Path) -> np.ndarray:
-    tensors = manifest["tensors"]["inputs"]
-    a = np.fromfile(inputs / "input_0.bin", dtype=np.float16).reshape(tensors[0]["shape"])
-    b = np.fromfile(inputs / "input_1.bin", dtype=np.float16).reshape(tensors[1]["shape"])
-    return np.matmul(a, b).astype(np.float16)
+    tensors = manifest["tensors"]
+    values = [
+        np.fromfile(inputs / f"input_{index}.bin", dtype=DTYPES[tensor["dtype"]]).reshape(tensor["shape"])
+        for index, tensor in enumerate(tensors["inputs"])
+    ]
+    reference = manifest["reference"]
+    kind = reference["kind"]
+    if kind == "add":
+        result = values[0] + values[1]
+    elif kind == "matmul":
+        result = np.matmul(values[0], values[1])
+    elif kind == "softmax":
+        axis = reference.get("axis", -1)
+        shifted = values[0] - np.max(values[0], axis=axis, keepdims=True)
+        exponentials = np.exp(shifted)
+        result = exponentials / np.sum(exponentials, axis=axis, keepdims=True)
+    elif kind == "gemm":
+        result = reference["alpha"] * np.matmul(values[0], values[1]) + reference["beta"] * values[2]
+    else:
+        raise ValueError(f"unsupported reference kind: {kind}")
+    return result.astype(DTYPES[tensors["output"]["dtype"]])
 
 
 def configure_and_build() -> None:
@@ -116,7 +133,7 @@ def compare_output(manifest: dict[str, Any], inputs: Path, output_path: Path) ->
     if not output_path.exists():
         return {"exists": False, "exact_match": False, "mismatched_elements": None, "total_elements": None}
     expected = expected_output(manifest, inputs)
-    actual = np.fromfile(output_path, dtype=np.float16)
+    actual = np.fromfile(output_path, dtype=DTYPES[manifest["tensors"]["output"]["dtype"]])
     if actual.size != expected.size:
         return {
             "exists": True,
@@ -126,7 +143,18 @@ def compare_output(manifest: dict[str, Any], inputs: Path, output_path: Path) ->
             "actual_elements": int(actual.size),
         }
     actual = actual.reshape(expected.shape)
-    mismatches = int(np.count_nonzero(actual != expected))
+    comparison = manifest.get("comparison", {"mode": "exact"})
+    if comparison["mode"] == "allclose":
+        matches = np.isclose(
+            actual,
+            expected,
+            rtol=comparison.get("rtol", 0.0),
+            atol=comparison.get("atol", 0.0),
+            equal_nan=comparison.get("equal_nan", False),
+        )
+    else:
+        matches = actual == expected
+    mismatches = int(np.count_nonzero(~matches))
     max_abs_error = float(np.max(np.abs(actual.astype(np.float32) - expected.astype(np.float32))))
     return {
         "exists": True,
@@ -135,6 +163,50 @@ def compare_output(manifest: dict[str, Any], inputs: Path, output_path: Path) ->
         "total_elements": int(expected.size),
         "max_abs_error": max_abs_error,
     }
+
+
+def tensor_spec(tensor: dict[str, Any]) -> str:
+    return f"{tensor['dtype']}:{','.join(str(dimension) for dimension in tensor['shape'])}"
+
+
+def runner_command(
+    manifest: dict[str, Any],
+    runner_path: Path,
+    model_dir: Path,
+    inputs: Path,
+    result_dir: Path,
+    device: int,
+) -> list[str]:
+    command = [
+        str(runner_path),
+        "--model-dir",
+        str(model_dir),
+        "--input-dir",
+        str(inputs.resolve()),
+        "--output-dir",
+        str(result_dir.resolve()),
+        "--acl-config",
+        str((BENCHMARK_DIR / "config" / "acl.json").resolve()),
+        "--device",
+        str(device),
+    ]
+    if manifest.get("runner_kind", "op") == "gemm":
+        reference = manifest["reference"]
+        shape_a = manifest["tensors"]["inputs"][0]["shape"]
+        shape_b = manifest["tensors"]["inputs"][1]["shape"]
+        command.extend([
+            "--m", str(shape_a[0]),
+            "--n", str(shape_b[1]),
+            "--k", str(shape_a[1]),
+            "--alpha", str(reference["alpha"]),
+            "--beta", str(reference["beta"]),
+        ])
+    else:
+        command.extend(["--operator", manifest["operator"]])
+        for tensor in manifest["tensors"]["inputs"]:
+            command.extend(["--input-spec", tensor_spec(tensor)])
+        command.extend(["--output-spec", tensor_spec(manifest["tensors"]["output"])])
+    return command
 
 
 def run_case(
@@ -157,19 +229,7 @@ def run_case(
     os.chmod(result_dir, 0o750)
 
     model_dir = (BENCHMARK_DIR / case["model_dir"]).resolve()
-    command = [
-        str(runner_path),
-        "--model-dir",
-        str(model_dir),
-        "--input-dir",
-        str(inputs.resolve()),
-        "--output-dir",
-        str(result_dir.resolve()),
-        "--acl-config",
-        str((BENCHMARK_DIR / "config" / "acl.json").resolve()),
-        "--device",
-        str(device),
-    ]
+    command = runner_command(manifest, runner_path, model_dir, inputs, result_dir, device)
 
     report_path = case_dir / f"{tool}.log"
     if tool != "none":
@@ -179,23 +239,51 @@ def run_case(
         command = [sanitizer, f"--tool={tool}", f"--log-file={report_path}", "--", *command]
 
     console_path = case_dir / "console.log"
+    timed_out = False
     with console_path.open("w", encoding="utf-8") as console:
-        completed = subprocess.run(command, cwd=case_dir, stdout=console, stderr=subprocess.STDOUT, check=False)
+        process = subprocess.Popen(
+            command,
+            cwd=case_dir,
+            stdout=console,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            return_code = process.wait(timeout=case.get("timeout_seconds", manifest.get("timeout_seconds")))
+        except subprocess.TimeoutExpired:
+            return_code = 124
+            timed_out = True
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
 
     hazards = parse_hazards(report_path)
     output = compare_output(manifest, inputs, result_dir / "output_0.bin")
     detected_types = set(hazards)
-    required_types = set(case["required_hazards"]) if tool == "racecheck" else detected_types
-    allowed_types = set(case.get("allowed_hazards", case["required_hazards"])) if tool == "racecheck" else detected_types
+    required_hazards = case.get("required_hazards", manifest.get("required_hazards", []))
+    allowed_hazards = case.get("allowed_hazards", manifest.get("allowed_hazards", required_hazards))
+    required_types = set(required_hazards) if tool == "racecheck" else detected_types
+    allowed_types = set(allowed_hazards) if tool == "racecheck" else detected_types
     hazard_expectation_met = required_types.issubset(detected_types) and detected_types.issubset(allowed_types)
     output_policy = case["output_policy"]
     if output_policy == "match":
         output_expectation_met = output["exists"] and output["exact_match"]
     elif output_policy == "mismatch":
         output_expectation_met = output["exists"] and not output["exact_match"]
-    else:
+    elif output_policy == "either":
         output_expectation_met = output["exists"]
-    passed = completed.returncode == 0 and hazard_expectation_met and output_expectation_met
+    else:
+        output_expectation_met = True
+    execution_policy = case.get("execution_policy", "success")
+    execution_expectation_met = (
+        return_code == 0 if execution_policy == "success"
+        else return_code != 0 if execution_policy == "failure"
+        else True
+    )
+    passed = execution_expectation_met and hazard_expectation_met and output_expectation_met
 
     summary = {
         "benchmark": manifest["id"],
@@ -203,10 +291,13 @@ def run_case(
         "description": case["description"],
         "tool": tool,
         "device": device,
-        "return_code": completed.returncode,
+        "return_code": return_code,
+        "timed_out": timed_out,
+        "execution_policy": execution_policy,
+        "execution_expectation_met": execution_expectation_met,
         "hazards": dict(sorted(hazards.items())),
-        "required_hazards": case["required_hazards"] if tool == "racecheck" else None,
-        "allowed_hazards": case.get("allowed_hazards", case["required_hazards"]) if tool == "racecheck" else None,
+        "required_hazards": required_hazards if tool == "racecheck" else None,
+        "allowed_hazards": allowed_hazards if tool == "racecheck" else None,
         "hazard_expectation_met": hazard_expectation_met,
         "output": output,
         "output_policy": output_policy,
@@ -281,7 +372,8 @@ def main() -> int:
 
     if args.command == "list":
         for case in manifest["cases"]:
-            print(f"{case['id']:<28} {case['description']}")
+            scope = "matrix" if case.get("matrix_enabled", True) else "manual"
+            print(f"{case['id']:<28} [{scope}] {case['description']}")
         return 0
     if args.command == "prepare":
         print(generate_data(manifest, force=args.force))
@@ -301,7 +393,11 @@ def main() -> int:
         print(f"report: {run_root / 'matrix_summary.md'}")
         return 0 if summary["passed"] else 1
 
-    summaries = [run_case(manifest, case, args.tool, args.device, run_root) for case in manifest["cases"]]
+    summaries = [
+        run_case(manifest, case, args.tool, args.device, run_root)
+        for case in manifest["cases"]
+        if case.get("matrix_enabled", True)
+    ]
     write_matrix_report(run_root, summaries)
     print(f"report: {run_root / 'matrix_summary.md'}")
     return 0 if all(summary["passed"] for summary in summaries) else 1

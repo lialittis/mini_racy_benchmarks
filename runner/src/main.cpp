@@ -2,8 +2,10 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <sys/stat.h>
+#include <vector>
 
 #include "acl/acl.h"
 #include "common.h"
@@ -13,22 +15,33 @@ bool g_isDevice = false;
 
 namespace {
 
+struct TensorSpec {
+    aclDataType dataType;
+    std::vector<int64_t> shape;
+};
+
 struct Options {
     std::string modelDir;
     std::string inputDir;
     std::string outputDir;
     std::string aclConfig;
+    std::string operatorType;
+    std::vector<TensorSpec> inputs;
+    std::vector<TensorSpec> outputs;
     int deviceId = 0;
     bool verboseData = false;
 };
 
 void PrintUsage(const char *program)
 {
-    std::cout << "Usage: " << program << " --model-dir PATH --input-dir PATH --output-dir PATH "
-              << "--acl-config PATH [--device ID] [--verbose-data]" << std::endl;
+    std::cout << "Usage: " << program
+              << " --model-dir PATH --input-dir PATH --output-dir PATH --acl-config PATH"
+              << " --operator TYPE --input-spec DTYPE:DIMS [--input-spec ...]"
+              << " --output-spec DTYPE:DIMS [--output-spec ...] [--device ID] [--verbose-data]"
+              << std::endl;
 }
 
-bool ParseDeviceId(const std::string &value, int &deviceId)
+bool ParseNonNegativeInt(const std::string &value, int &result)
 {
     char *end = nullptr;
     errno = 0;
@@ -37,8 +50,43 @@ bool ParseDeviceId(const std::string &value, int &deviceId)
         parsed > std::numeric_limits<int>::max()) {
         return false;
     }
-    deviceId = static_cast<int>(parsed);
+    result = static_cast<int>(parsed);
     return true;
+}
+
+bool ParseDataType(const std::string &value, aclDataType &dataType)
+{
+    if (value == "float16") {
+        dataType = ACL_FLOAT16;
+    } else if (value == "float32") {
+        dataType = ACL_FLOAT;
+    } else if (value == "int32") {
+        dataType = ACL_INT32;
+    } else if (value == "int8") {
+        dataType = ACL_INT8;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+bool ParseTensorSpec(const std::string &value, TensorSpec &spec)
+{
+    const size_t separator = value.find(':');
+    if (separator == std::string::npos || !ParseDataType(value.substr(0, separator), spec.dataType)) {
+        return false;
+    }
+
+    std::stringstream dimensions(value.substr(separator + 1));
+    std::string token;
+    while (std::getline(dimensions, token, ',')) {
+        int parsed = 0;
+        if (!ParseNonNegativeInt(token, parsed) || parsed == 0) {
+            return false;
+        }
+        spec.shape.push_back(parsed);
+    }
+    return !spec.shape.empty();
 }
 
 bool ParseOptions(int argc, char **argv, Options &options)
@@ -57,6 +105,7 @@ bool ParseOptions(int argc, char **argv, Options &options)
             ERROR_LOG("Missing value for %s", arg.c_str());
             return false;
         }
+
         std::string value = argv[++i];
         if (arg == "--model-dir") {
             options.modelDir = value;
@@ -66,8 +115,17 @@ bool ParseOptions(int argc, char **argv, Options &options)
             options.outputDir = value;
         } else if (arg == "--acl-config") {
             options.aclConfig = value;
+        } else if (arg == "--operator") {
+            options.operatorType = value;
+        } else if (arg == "--input-spec" || arg == "--output-spec") {
+            TensorSpec spec;
+            if (!ParseTensorSpec(value, spec)) {
+                ERROR_LOG("Invalid tensor spec: %s", value.c_str());
+                return false;
+            }
+            (arg == "--input-spec" ? options.inputs : options.outputs).push_back(spec);
         } else if (arg == "--device") {
-            if (!ParseDeviceId(value, options.deviceId)) {
+            if (!ParseNonNegativeInt(value, options.deviceId)) {
                 ERROR_LOG("Invalid device id: %s", value.c_str());
                 return false;
             }
@@ -78,8 +136,9 @@ bool ParseOptions(int argc, char **argv, Options &options)
     }
 
     if (options.modelDir.empty() || options.inputDir.empty() || options.outputDir.empty() ||
-        options.aclConfig.empty()) {
-        ERROR_LOG("model-dir, input-dir, output-dir, and acl-config are required");
+        options.aclConfig.empty() || options.operatorType.empty() || options.inputs.empty() ||
+        options.outputs.empty()) {
+        ERROR_LOG("model/input/output directories, ACL config, operator and tensor specs are required");
         return false;
     }
     return true;
@@ -132,15 +191,15 @@ bool ProcessOutputData(OpRunner &runner, const Options &options)
     return true;
 }
 
-bool RunMatmul(const Options &options)
+bool RunOperator(const Options &options)
 {
-    std::vector<int64_t> shapeA {16, 64};
-    std::vector<int64_t> shapeB {64, 1024};
-    std::vector<int64_t> shapeC {16, 1024};
-    OperatorDesc opDesc("MatMul");
-    opDesc.AddInputTensorDesc(ACL_FLOAT16, shapeA.size(), shapeA.data(), ACL_FORMAT_ND);
-    opDesc.AddInputTensorDesc(ACL_FLOAT16, shapeB.size(), shapeB.data(), ACL_FORMAT_ND);
-    opDesc.AddOutputTensorDesc(ACL_FLOAT16, shapeC.size(), shapeC.data(), ACL_FORMAT_ND);
+    OperatorDesc opDesc(options.operatorType);
+    for (const TensorSpec &spec : options.inputs) {
+        opDesc.AddInputTensorDesc(spec.dataType, spec.shape.size(), spec.shape.data(), ACL_FORMAT_ND);
+    }
+    for (const TensorSpec &spec : options.outputs) {
+        opDesc.AddOutputTensorDesc(spec.dataType, spec.shape.size(), spec.shape.data(), ACL_FORMAT_ND);
+    }
 
     OpRunner opRunner(&opDesc);
     if (!opRunner.Init()) {
@@ -180,13 +239,13 @@ int main(int argc, char **argv)
             ERROR_LOG("Get ACL run mode failed");
         } else {
             g_isDevice = (runMode == ACL_DEVICE);
-            INFO_LOG("Running MatMul on device %d with models from %s", options.deviceId,
-                     options.modelDir.c_str());
-            if (RunMatmul(options)) {
-                INFO_LOG("Run MatMul successfully");
+            INFO_LOG("Running %s on device %d with models from %s", options.operatorType.c_str(),
+                     options.deviceId, options.modelDir.c_str());
+            if (RunOperator(options)) {
+                INFO_LOG("Run %s successfully", options.operatorType.c_str());
                 result = SUCCESS;
             } else {
-                ERROR_LOG("Run MatMul failed");
+                ERROR_LOG("Run %s failed", options.operatorType.c_str());
             }
         }
     }
