@@ -33,6 +33,41 @@ cd /root/mini_racy_benchmarks
 - `optimized_ir/matmul_v3_{0,65536}.ll`：两个 tiling key 的优化 LLVM IR。
 - `optimized_ir/compile_*.command.txt`：从 `.mk` 提取并改为 `-emit-llvm` 的命令。
 
+## asc_opc、Python 与 Ascend C 的关系
+
+本探针把 `dynamic/mat_mul_v3.py` 传给 `asc_opc`，因此编译入口确实是 Python；但该文件在
+当前 MatMulV3 中主要是注册和编译适配层，不是矩阵计算的主体实现。实际调用链为：
+
+```text
+kernel_compile.json
+    -> asc_opc 动态加载 dynamic/mat_mul_v3.py
+    -> 调用 @register_operator("MatMulV3") 注册的 mat_mul_v3(...)
+    -> Python 根据输入 dtype/format/属性构造 -D 宏、include 和 SoC 编译选项
+    -> get_kernel_source() 定位 ascendc/mat_mul_v3/mat_mul_v3.cpp
+    -> compile_op(src, ...) 调用 bisheng
+    -> .i / .mk / tiling-key .o / kernel JSON
+```
+
+当前安装包 Python 入口中的关键步骤是：
+
+- `get_dtype_fmt_options()` 生成 `DTYPE_X1`、`FORMAT_X1`、`DTYPE_X2`、`FORMAT_X2` 等宏。
+- `ascendc_src_file = "mat_mul_v3.cpp"` 明确选择 Ascend C 源文件。
+- `get_kernel_source()` 将其解析到 `impl/ops_nn/ascendc/mat_mul_v3/mat_mul_v3.cpp`。
+- `compile_op()` 把该 `.cpp`、算子信息和编译选项交给 Bisheng。
+
+矩阵分块、数据搬运、Matmul API 和输出转换位于 `mat_mul_v3.cpp` 及同目录的
+`mat_mul_base_kernel.h`、`mat_mul_optimized_fixpipe_algorithm.h` 等 C++ 头文件中。Python
+使用 `tbe_register.register_operator` 是因为 `asc_opc` 复用了统一算子注册框架，不能据此
+判断该算子是传统 TBE DSL 实现。
+
+| 路径 | Python 的作用 | 进入编译器的计算实现 |
+| --- | --- | --- |
+| 传统 TBE | 用 TE/TVM DSL 描述 compute 和 schedule | Python 生成的 `.cce` |
+| 当前 MatMulV3 Ascend C | 注册、规格适配、源码选择、发起编译 | `mat_mul_v3.cpp` 及其头文件 |
+
+因此，本探针不是对 Python 字节码提取 LLVM IR。它先让 Python 编译入口生成真实 Bisheng
+命令，再对 Bisheng 编译的 Ascend C/C++ 内核请求 `-emit-llvm`。
+
 ## 为什么不只 grep `.i`
 
 预处理 `.i` 包含大量未实例化的 Ascend C API 模板，同时出现

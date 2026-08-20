@@ -13,6 +13,8 @@
 - Verified O0, O2, and sanitizer IR generation and all seven MatMul baseline/injection CCE sources.
 - Confirmed that the `l46_rm_barrier_v` and `l63_no_m_to_v` injection differences remain visible in
   optimized LLVM IR.
+- Clarified the MatMulV3 compilation chain from the `asc_opc` Python registration wrapper to the
+  Ascend C `mat_mul_v3.cpp` implementation, Bisheng command generation, and LLVM IR extraction.
 
 ## 2026-08-19
 

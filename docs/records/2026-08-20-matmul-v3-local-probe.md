@@ -14,7 +14,8 @@ baseline 相同的 `L0C -> UB` 后紧接 `VMULS`、中间缺少 `PIPE_V` complet
 | SoC | Ascend310P3 |
 | CANN | 9.0.0，`/usr/local/Ascend/cann-9.0.0` |
 | 编译入口 | `bin/asc_opc` |
-| 内核实现 | `opp/built-in/op_impl/ai_core/tbe/impl/ops_nn/dynamic/mat_mul_v3.py` |
+| Python 编译入口 | `opp/built-in/op_impl/ai_core/tbe/impl/ops_nn/dynamic/mat_mul_v3.py` |
+| Ascend C 内核实现 | `opp/built-in/op_impl/ai_core/tbe/impl/ops_nn/ascendc/mat_mul_v3/mat_mul_v3.cpp` 及同目录头文件 |
 | 开源对照 | `cann/ops-nn` tag `v9.0.0`，`matmul/mat_mul_v3` |
 | 格式/类型 | X1 ND FP16，X2 FRACTAL_NZ FP16，Y ND FP16 |
 | 实现模式 | `high_performance`，dynamic |
@@ -39,6 +40,16 @@ cd /root/mini_racy_benchmarks
   --op_mode=dynamic \
   --op_debug_config=dump_cce \
   --debug_dir=artifacts/matmul_v3_probe/debug
+```
+
+这里的 `.py` 是 `asc_opc` 的统一注册和编译入口，不是传统 TBE compute/schedule 实现。该
+Python 函数解析输入规格，生成 dtype/format 宏和 include/SoC 选项，然后通过
+`get_kernel_source()` 选择 `ascendc/mat_mul_v3/mat_mul_v3.cpp`，最终调用
+`compile_op(src, ...)` 交给 Bisheng。LLVM IR 的直接输入是这个 Ascend C/C++ 编译单元，
+不是 Python 本身。
+
+```text
+asc_opc -> mat_mul_v3.py -> mat_mul_v3.cpp -> compile_op -> bisheng -> .bc/.ll
 ```
 
 `dump_cce` 对 Ascend C 动态内核产生预处理 `.i` 和实际 `.mk`，而非旧 TBE 风格的短 `.cce`。
