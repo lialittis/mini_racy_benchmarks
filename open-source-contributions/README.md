@@ -5,5 +5,5 @@
 
 ## Contributions
 
-- [msSanitizer: MatMul baseline 疑似 UB WAR 误报](mssanitizer/matmul-baseline-ub-war-issue.md)
-
+- [msSanitizer issue #191: MatMul baseline 疑似 UB WAR 误报](mssanitizer/matmul-baseline-ub-war-issue.md)：
+  已提交，当前状态为 Open / `TODO`。

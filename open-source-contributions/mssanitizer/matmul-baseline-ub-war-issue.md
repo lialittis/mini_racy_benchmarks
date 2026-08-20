@@ -1,23 +1,40 @@
-# msSanitizer MatMul Baseline UB WAR Issue Draft
+# msSanitizer MatMul Baseline UB WAR Issue Record
 
 ## 状态
 
-- Upstream: <https://gitcode.com/Ascend/mssanitizer>
+- Upstream project: <https://gitcode.com/Ascend/mssanitizer>
+- Upstream issue: <https://gitcode.com/Ascend/mssanitizer/issues/191>
 - Reference style: <https://gitcode.com/Ascend/mssanitizer/issues/113>
 - Type: Bug Report
-- Status: Draft
+- Label: `bug`
+- Status: Submitted / Open (`TODO`)
+- Submitted at: `2026-08-20 21:11:40 +08:00`
+- Last checked: `2026-08-20`
+- Maintainer response: 目前只有自动受理回复，尚无技术结论
 - Reproducer repository: <https://github.com/lialittis/mini_racy_benchmarks>
 - Reproducer commit: `8c78f11b0bad5e0f05d48f9de61752100124c990`
 - Local experiment record:
   [`docs/records/2026-08-20-matmul-baseline-stress20.md`](../../docs/records/2026-08-20-matmul-baseline-stress20.md)
 
-## 建议标题
+## 当前结论
+
+当前 issue 无需为了可复现性强制更新。其引用的 commit 已公开可访问，并包含
+baseline OM、CCE、输入生成、构建和测试脚本，足以按 issue 中的命令独立复现。
+仓库后续提交增加了分析和开源贡献记录，但不影响该复现 commit 的有效性。
+
+更新为仓库最新 commit 或补充全部原始日志都属于增强项。仅在维护者要求更多证据、
+现有 commit 无法复现，或 issue 中的统计和路径需要纠正时再更新。
+
+## 已提交标题
 
 ```text
 [Bug]: racecheck 偶发报告 MatMul 中静态不重叠 UB 地址的 WAR（20 次复现 5 次）
 ```
 
-## Issue 正文
+## 已提交内容与本地补充
+
+以下内容保留已提交 issue 的核心复现信息；接口参考和附件清单同时作为仓库内的
+后续跟踪材料。
 
 ### 环境信息
 
@@ -69,7 +86,7 @@ done
 - 1 次报告 4 条。
 - 其余 15 次没有报告 hazard。
 
-代表性报告如下，提交前应将真实绝对路径替换为 `<project-root>`：
+代表性报告如下，已将真实绝对路径替换为 `<project-root>`：
 
 ```text
 ====== ERROR: Potential WAR hazard detected at UB in
@@ -139,9 +156,10 @@ scatter_vnchwconv_b16(VA0, VA2, 0x0800000000010010);
 3. 是否可能将其他 `PIPE_V` 写操作的调试位置映射到 line 52？
 4. 该现象是否属于已知限制？
 
-### 附件说明
+### 可选后续补充
 
-建议附带以下经过脱敏的文件：
+当前 issue 未附全部原始日志。只有在维护者请求或独立复现失败时，才需要补充以下
+经过脱敏的材料：
 
 - `benchmarks/matmul/kernels/baseline/matmul.cce`
 - 阳性日志：run 06、08、11、15、17 的 `racecheck.log` 和 `summary.json`
@@ -149,11 +167,13 @@ scatter_vnchwconv_b16(VA0, VA2, 0x0800000000010010);
 - 20 次结果汇总表
 - baseline OM、CCE、输入文件和输出文件的 SHA-256
 
-## 提交前检查
+## 提交后跟踪
 
-- [ ] 确认 reproducer commit 已推送且无需登录即可访问。
-- [ ] 将日志中的 `/root/...` 和其他本地路径替换为 `<project-root>`。
-- [ ] 删除主机名、账号、Bus ID 以及与复现无关的设备信息。
-- [ ] 确认附件不包含 token、密钥、密码或私有仓库地址。
-- [ ] 保留原始日志的 PC、serialNo、block、CCE 行号和 UB 地址。
-- [ ] 提交后在本文状态区补充 upstream issue URL 和处理状态。
+- [x] Issue 已提交：<https://gitcode.com/Ascend/mssanitizer/issues/191>。
+- [x] Reproducer commit 已推送并确认无需登录即可访问。
+- [x] Issue 正文已包含环境、复现命令、20 次统计和 CCE 地址分析。
+- [x] 展示日志中的本地绝对路径已替换为 `<project-root>`。
+- [x] 保留了 PC、serialNo、block、CCE 行号和 UB 地址等诊断字段。
+- [ ] 等待维护者的技术回复或复现结果。
+- [ ] 仅在维护者要求时补充脱敏后的原始日志和哈希汇总。
+- [ ] 状态、结论或解决版本发生变化后更新本文。
