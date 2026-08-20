@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "add_int32_8x16",
+  "operator": "Add",
+  "runner_binary": "mrb_op_runner",
+  "runner_kind": "op",
+  "description": "INT32 Add baseline and intentionally racy AI Core kernels",
+  "timeout_seconds": 60,
+  "tensors": {
+    "inputs": [
+      {"name": "x1", "shape": [8, 16], "dtype": "int32"},
+      {"name": "x2", "shape": [8, 16], "dtype": "int32"}
+    ],
+    "output": {"name": "y", "shape": [8, 16], "dtype": "int32"}
+  },
+  "data": {
+    "seed": 20260820,
+    "integer_low": -20,
+    "integer_high_exclusive": 21
+  },
+  "reference": {"kind": "add"},
+  "comparison": {"mode": "exact"},
+  "required_hazards": [],
+  "allowed_hazards": ["GM_RAW", "GM_WAR", "GM_WAW", "UB_RAW", "UB_WAR", "UB_WAW"],
+  "cases": [
+    {
+      "id": "baseline",
+      "description": "Unmodified Add kernel",
+      "model_dir": "models/baseline",
+      "kernel_source": "kernels/baseline/add.cce",
+      "allowed_hazards": ["UB_RAW"],
+      "output_policy": "match"
+    },
+    {
+      "id": "no_v_to_mte3",
+      "description": "Remove the Vector-to-MTE3 event before the GM store",
+      "model_dir": "models/no_v_to_mte3",
+      "kernel_source": "kernels/injections/te_add_no_v_to_m.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "rm_final_barrier",
+      "description": "Remove the final PIPE_ALL barrier",
+      "model_dir": "models/rm_final_barrier",
+      "kernel_source": "kernels/injections/te_add_rm_barrier.cce",
+      "allowed_hazards": [],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_mte2_to_v",
+      "description": "Remove the MTE2-to-Vector event before vadd",
+      "model_dir": "models/no_mte2_to_v",
+      "kernel_source": "kernels/injections/te_add_rm_sw.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "oversized_gm_to_ub",
+      "description": "Expand the first GM-to-UB transfer so it overlaps the second UB buffer",
+      "model_dir": "models/oversized_gm_to_ub",
+      "kernel_source": "kernels/injections/te_add_tail.cce",
+      "required_hazards": ["UB_WAW"],
+      "allowed_hazards": ["UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "v_to_wrong_pipe",
+      "description": "Route the post-vadd event to MTE2 instead of MTE3",
+      "model_dir": "models/v_to_wrong_pipe",
+      "kernel_source": "kernels/injections/te_add_v_to_wrong_m.cce",
+      "required_hazards": ["UB_RAW"],
+      "allowed_hazards": ["UB_RAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "mismatched_event_id",
+      "description": "Use mismatched event IDs around both Vector dependencies",
+      "model_dir": "models/mismatched_event_id",
+      "kernel_source": "kernels/injections/te_add_wrong_id.cce",
+      "matrix_enabled": false,
+      "execution_policy": "failure",
+      "output_policy": "any"
+    }
+  ]
+}
