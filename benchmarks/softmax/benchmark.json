@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "softmax_float32_8x16",
+  "operator": "SoftmaxV2",
+  "runner_binary": "mrb_op_runner",
+  "runner_kind": "op",
+  "description": "FP32 SoftmaxV2 baseline and intentionally racy AI Core kernels",
+  "timeout_seconds": 60,
+  "tensors": {
+    "inputs": [
+      {"name": "x", "shape": [8, 16], "dtype": "float32"}
+    ],
+    "output": {"name": "y", "shape": [8, 16], "dtype": "float32"}
+  },
+  "data": {
+    "seed": 20260821,
+    "integer_low": -4,
+    "integer_high_exclusive": 5
+  },
+  "reference": {"kind": "softmax", "axis": -1},
+  "comparison": {"mode": "allclose", "rtol": 0.002, "atol": 0.0002},
+  "required_hazards": [],
+  "allowed_hazards": ["GM_RAW", "GM_WAR", "GM_WAW", "UB_RAW", "UB_WAR", "UB_WAW"],
+  "cases": [
+    {
+      "id": "baseline",
+      "description": "Unmodified SoftmaxV2 kernel",
+      "model_dir": "models/baseline",
+      "kernel_source": "kernels/baseline/softmax.cce",
+      "allowed_hazards": ["UB_RAW", "UB_WAW"],
+      "output_policy": "match"
+    },
+    {
+      "id": "cross_core_shift_read",
+      "description": "Shift each block's GM input read to the next block",
+      "model_dir": "models/cross_core_shift_read",
+      "kernel_source": "kernels/injections/te_softmaxv2_cross_core_1.cce",
+      "matrix_enabled": false,
+      "execution_policy": "failure",
+      "output_policy": "any"
+    },
+    {
+      "id": "cross_core_mod4",
+      "description": "Map eight block outputs onto four GM regions",
+      "model_dir": "models/cross_core_mod4",
+      "kernel_source": "kernels/injections/te_softmaxv2_cross_core_2.cce",
+      "required_hazards": ["GM_WAW"],
+      "allowed_hazards": ["GM_WAW", "UB_RAW", "UB_WAW"],
+      "output_policy": "mismatch"
+    },
+    {
+      "id": "no_v_to_s",
+      "description": "Remove the Vector-to-Scalar event before reading the maximum",
+      "model_dir": "models/no_v_to_s",
+      "kernel_source": "kernels/injections/te_softmaxv2_l29_no_v_to_s.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_s_to_v",
+      "description": "Remove the Scalar-to-Vector event before broadcasting the reciprocal",
+      "model_dir": "models/no_s_to_v",
+      "kernel_source": "kernels/injections/te_softmaxv2_l60_no_s_to_v.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "no_exp_barrier",
+      "description": "Remove the Vector barrier between conversion and exponentiation",
+      "model_dir": "models/no_exp_barrier",
+      "kernel_source": "kernels/injections/te_softmaxv2_l80_no_barrier.cce",
+      "required_hazards": ["UB_RAW", "UB_WAW"],
+      "allowed_hazards": ["UB_RAW", "UB_WAW"],
+      "output_policy": "either"
+    },
+    {
+      "id": "mismatched_event_id",
+      "description": "Use mismatched event IDs in Vector-to-Scalar dependencies",
+      "model_dir": "models/mismatched_event_id",
+      "kernel_source": "kernels/injections/te_softmaxv2_mismatch_id.cce",
+      "matrix_enabled": false,
+      "execution_policy": "failure",
+      "output_policy": "any"
+    }
+  ]
+}
