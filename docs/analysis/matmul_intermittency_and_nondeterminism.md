@@ -65,6 +65,13 @@ line 37 的 `copy_ubuf_to_cbuf` 读取 A 阶段的 UB 数据，line 52 的 `scat
 
 这支持“存在窄的、调度敏感的 UB 复用窗口”，但现有五次样本不足以区分以下可能性：真实但当前未造成输出错误的 WAR、sanitizer 对异步访问范围的保守报告，或两者共同作用。不能因为当前输出正确就把告警定性为无害，也不能因为一次告警就断言 baseline 已存在功能性错误。
 
+2026-08-20 又完成了 20 次独立 baseline racecheck 压力测试：5 次报告 `UB_WAR`，计数为
+`2, 2, 4, 2, 2`，其余 15 次无 hazard；20 次均为 `0/16384` mismatch，输出 SHA-256
+完全一致。五次阳性报告都指向 line 37 的 `PIPE_MTE3` 读取和 line 52 的 `PIPE_V` 写入。
+这确认了同一指纹的 WAR 具有可复现的出现性波动，但仍需同步诊断版本和未修改 control OM
+区分真实依赖缺口与 sanitizer 保守报告。完整结果见
+[压力测试记录](../records/2026-08-20-matmul-baseline-stress20.md)。
+
 ### 4.2 `cross_core_mod4`
 
 `GM_WAW=4` 在五次完整矩阵中始终存在。该注入把 8 个 block 通过 `block_idx % 4` 映射到 4 个输出区域，因此四组跨核 GM WAW 是结构上确定的。
